@@ -1,7 +1,7 @@
 """
 @author: Jm-Paunlagui
 @github: https://github.com/Jm-Paunlagui
-@repository:
+@repository: https://github.com/Jm-Paunlagui/Matrix-BiLSTM
 @description:
     This script is used to train a Bidirectional LSTM model for sentiment analysis.
 
