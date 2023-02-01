@@ -1,5 +1,8 @@
 import re
 
+import nltk as nltk
+from nltk import word_tokenize
+
 
 class TextPreprocessing:
     """Text preprocessing class."""
@@ -113,3 +116,42 @@ class TextPreprocessing:
         self.text = self.remove_html_tags()
         self.text = self.remove_whitespace_at_beginning_and_end()
         return self.text
+
+
+nltk.download('punkt')
+nltk.download('stopwords')
+
+new_stopwords = [
+    "mo", "wla..", "ako", "sa", "akin", "ko", "aking", "sarili", "kami", "atin", "ang", "aming", "lang",
+    "amin", "ating", "ka", "iyong", "iyo", "inyong", "siya", "kanya", "mismo", "ito", "nito", "kanyang", "sila",
+    "nila",
+    "kanila", "kanilang", "kung", "ano", "alin", "sino", "kanino", "na", "mga", "iyon", "am", "ay", "maging",
+    "naging",
+    "mayroon", "may", "nagkaroon", "pagkakaroon", "gumawa", "ginagawa", "ginawa", "paggawa", "ibig", "dapat",
+    "maaari",
+    "marapat", "kong", "ikaw", "tayo", "namin", "gusto", "nais", "niyang", "nilang", "niya", "huwag", "ginawang",
+    "gagawin", "maaaring", "sabihin", "narito", "kapag", "ni", "nasaan", "bakit", "paano", "kailangan", "walang",
+    "katiyakan", "isang", "at", "pero", "o", "dahil", "bilang", "hanggang", "habang", "ng", "pamamagitan", "para",
+    "tungkol", "laban", "pagitan", "panahon", "bago", "pagkatapos", "itaas", "ibaba", "mula", "pataas", "pababa",
+    "palabas", "ibabaw", "ilalim", "muli", "pa", "minsan", "dito", "doon", "saan", "lahat", "anumang", "kapwa",
+    "bawat",
+    "ilan", "karamihan", "iba", "tulad", "lamang", "pareho", "kaya", "kaysa", "masyado", "napaka", "isa", "bababa",
+    "kulang", "marami", "ngayon", "kailanman", "sabi", "nabanggit", "din", "kumuha", "pumunta", "pumupunta",
+    "ilagay",
+    "makita", "nakita", "katulad", "likod", "kahit", "paraan", "noon", "gayunman", "dalawa", "tatlo", "apat",
+    "lima",
+    "una", "pangalawa", "yung", "po"
+]
+stpwrd = nltk.corpus.stopwords.words('english')
+stpwrd.remove("no")
+stpwrd.remove("t")
+stpwrd.extend(new_stopwords)
+
+
+def remove_stopwords(response):
+    """Remove stopwords from text."""
+    response = response.lower()
+    response = word_tokenize(response)
+    response = [word for word in response if word not in stpwrd]
+    response = " ".join(response)
+    return response
