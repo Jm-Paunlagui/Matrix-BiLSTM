@@ -21,9 +21,14 @@ from keras.models import Sequential
 from keras.layers import Dense, Embedding, Bidirectional, LSTM, Dropout, GlobalMaxPooling1D, Reshape
 from sklearn.model_selection import train_test_split
 from tensorflow.python.ops.init_ops_v2 import glorot_uniform
+from pipeline import TextPreprocessing as MyTextPreprocessing
 
-# Read the preprocessed data
-df = pd.read_csv('dataset\\datasets-labeled-cleaned.csv')
+# Read the imported data
+df = pd.read_csv('dataset\\datasets-labeled-raw.csv')
+
+# Text Preprocessing and Cleaning
+df.dropna(inplace=True,)
+df['sentence'] = df['sentence'].apply(lambda x: MyTextPreprocessing(x).clean_text())
 
 # Parameters for the model
 max_features = 1000
@@ -128,6 +133,7 @@ def bidirectional_model(input_shape):
     return Model(inputs=inputs, outputs=outputs, name='model')
 
 
+# Create the model and compile it
 model = bidirectional_model((max_length,))
 
 # Compile the model
@@ -166,8 +172,4 @@ for word_num in range(1, max_features - 1):
     out_v.write('\t'.join([str(x) for x in embeddings]) + "\n")
 out_v.close()
 out_m.close()
-
-
-
-
 
