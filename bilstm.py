@@ -8,6 +8,7 @@
     The model is trained on the CCC Evaluation comments of the students.
 
 """
+import io
 
 import pandas as pd
 import tensorflow as tf
@@ -25,11 +26,11 @@ from tensorflow.python.ops.init_ops_v2 import glorot_uniform
 df = pd.read_csv('dataset\\datasets-labeled-cleaned.csv')
 
 # Parameters for the model
-max_features = 800
+max_features = 1000
 max_length = 300
-epochs = 10
+epochs = 5
 batch_size = 128
-learning_rate = 3e-4
+learning_rate = 5e-4
 
 # Split the data into train and test
 X = df['sentence']
@@ -40,7 +41,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 # Tokenize the text
 tokenizer = Tokenizer(oov_token='<OOV>', lower=True, num_words=max_features)
 tokenizer.fit_on_texts(X_train)
-
+word_index = tokenizer.word_index
 # Convert the text to sequences
 X_train = tokenizer.texts_to_sequences(X_train)
 
@@ -85,13 +86,15 @@ def bidirectional_model(input_shape):
 
     Dropout:
     - rate: Float between 0 and 1. Fraction of the input units to drop.
-    - noise_shape: 1D integer tensor representing the shape of the binary dropout mask that will be multiplied with the input. For instance, if your inputs have shape (batch_size, timesteps, features) and you want the dropout mask to be the same for all timesteps, you can use noise_shape=(batch_size, 1, features).
+    - noise_shape: 1D integer tensor representing the shape of the binary dropout mask that will be multiplied with the
+    input. For instance, if your inputs have shape (batch_size, timesteps, features)
+    and you want the dropout mask to be the same for all timesteps, you can use noise_shape=(batch_size, 1, features).
     - seed: A Python integer to use as random seed.
     """
     inputs = Input(shape=input_shape, dtype='int32')
 
     embedding = Embedding(
-        input_dim=800, output_dim=256, embeddings_initializer=RandomUniform(
+        input_dim=max_features, output_dim=256, embeddings_initializer=RandomUniform(
             minval=-0.05, maxval=0.05
         ), input_length=None, name='embedding_1'
     )(inputs)
@@ -114,7 +117,7 @@ def bidirectional_model(input_shape):
     )(global_max_pooling1d)
 
     dropout = Dropout(
-        0.5, name='dropout'
+        rate=0.5, name='dropout'
     )(dense)
 
     outputs = Dense(
@@ -140,16 +143,29 @@ X_test = pad_sequences(X_test, maxlen=max_length)
 model.evaluate(X_test, y_test)
 
 # Save the model
-model.save('models\\bilstm.h5')
+model.save('models\\model.h5')
 
 # Save the tokenizer
 import pickle
 
-with open('models\\tokenizer.pickle', 'wb') as handle:
+with open('models\\tokenize.pickle', 'wb') as handle:
     pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
+# For visualization in Embedding Projector (https://projector.tensorflow.org/)
+weights = model.get_layer('embedding_1').get_weights()[0]
+reverse_word_index = dict([(value, key) for (key, value) in word_index.items()])
 
+out_v = io.open('vectors.tsv', 'w', encoding='utf-8')
+out_m = io.open('metadata.tsv', 'w', encoding='utf-8')
+
+for word_num in range(1, max_features - 1):
+    word = reverse_word_index[word_num]
+    embeddings = weights[word_num]
+    out_m.write(word + "\n")
+    out_v.write('\t'.join([str(x) for x in embeddings]) + "\n")
+out_v.close()
+out_m.close()
 
 
 
