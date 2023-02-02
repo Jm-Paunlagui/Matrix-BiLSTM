@@ -11,141 +11,80 @@
 import io
 
 import pandas as pd
-import tensorflow as tf
-from keras import Model, Input
-from keras.initializers.initializers_v2 import RandomUniform, Orthogonal
+from keras.optimizers import Adam
 
 from keras.preprocessing.text import Tokenizer
 from keras.utils import pad_sequences
 from keras.models import Sequential
-from keras.layers import Dense, Embedding, Bidirectional, LSTM, Dropout, GlobalMaxPooling1D, Reshape
+from keras.layers import Dense, Embedding, Bidirectional, LSTM, Dropout, GlobalMaxPooling1D
 from sklearn.model_selection import train_test_split
-from tensorflow.python.ops.init_ops_v2 import glorot_uniform
 from pipeline import TextPreprocessing as MyTextPreprocessing
+from pipeline import remove_stopwords
 
 # Read the imported data
-df = pd.read_csv('dataset\\datasets-labeled-raw.csv')
+df = pd.read_csv('dataset\\dataset-all-combined-final.csv')
+print(df.head)
 
 # Text Preprocessing and Cleaning
 df.dropna(inplace=True,)
+print(f"Number of rows: {df.shape[0]}")
+df['sentence'] = df['sentence'].apply(lambda x: x.lower())
+print(f"Lowercase: {df['sentence'].head(10)}")
 df['sentence'] = df['sentence'].apply(lambda x: MyTextPreprocessing(x).clean_text())
+print(f"Cleaned text: {df['sentence'].head(10)}")
+# Removing stopwords
+df['sentence'] = df['sentence'].apply(lambda x: remove_stopwords(x))
+print(f"Removed stopwords: {df['sentence'].head(10)}")
+
+# Shuffle the data and reset the index of the data frame to avoid any bias in the model training and testing process
+df = df.sample(frac=1).reset_index(drop=True)
+print(df.head(10))
 
 # Parameters for the model
-max_features = 1000
+max_features = 6059
 max_length = 300
-epochs = 5
-batch_size = 128
-learning_rate = 5e-4
+epochs = 10
+batch_size = 256
+learning_rate = 3e-4
 
 # Split the data into train and test
 X = df['sentence']
 y = df['label']
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y, shuffle=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, shuffle=True, random_state=42)
 
 # Tokenize the text
 tokenizer = Tokenizer(oov_token='<OOV>', lower=True, num_words=max_features)
 tokenizer.fit_on_texts(X_train)
 word_index = tokenizer.word_index
+print('Found %s unique tokens.' % len(word_index))
+
 # Convert the text to sequences
 X_train = tokenizer.texts_to_sequences(X_train)
-
+X_test = tokenizer.texts_to_sequences(X_test)
 # Pad the sequences
 X_train = pad_sequences(X_train, maxlen=max_length)
-
-
-def bidirectional_model(input_shape):
-    """
-    :param input_shape:
-    :return: deep learning model for sentiment analysis
-
-    Model Architecture:
-    Embedding -> Bidirectional LSTM -> Global Max Pooling -> Dense -> Dropout -> Dense
-
-    Embedding:
-    - input_dim: size of the vocabulary
-    - output_dim: size of the dense vector to represent each token
-    - input_length: length of the input sequence
-
-    Bidirectional LSTM:
-    - units: number of units in the LSTM
-    - return_sequences: whether to return the last output in the output sequence, or the full sequence
-    - activation: activation function to use
-    - recurrent_activation: activation function to use for the recurrent step
-    - kernel_initializer: initializer for the kernel weights matrix
-    - recurrent_initializer: initializer for the recurrent kernel weights matrix
-    - bias_initializer: initializer for the bias vector
-    - unit_forget_bias: if True, add 1 to the bias of the forget gate at initialization
-
-    Global Max Pooling:
-    - pool_size: integer or tuple of 2 integers, factors by which to downscale (vertical, horizontal).
-    - strides: Integer, tuple of 2 integers, or None. Strides values.
-    - padding: One of "valid" or "same" (case-insensitive).
-
-    Dense:
-    - units: Positive integer, dimensionality of the output space.
-    - activation: Activation function to use. If you don't specify anything, no activation is applied (ie. "linear" activation: a(x) = x).
-    - use_bias: Boolean, whether the layer uses a bias vector.
-    - kernel_initializer: Initializer for the kernel weights matrix.
-    - bias_initializer: Initializer for the bias vector.
-
-    Dropout:
-    - rate: Float between 0 and 1. Fraction of the input units to drop.
-    - noise_shape: 1D integer tensor representing the shape of the binary dropout mask that will be multiplied with the
-    input. For instance, if your inputs have shape (batch_size, timesteps, features)
-    and you want the dropout mask to be the same for all timesteps, you can use noise_shape=(batch_size, 1, features).
-    - seed: A Python integer to use as random seed.
-    """
-    inputs = Input(shape=input_shape, dtype='int32')
-
-    embedding = Embedding(
-        input_dim=max_features, output_dim=256, embeddings_initializer=RandomUniform(
-            minval=-0.05, maxval=0.05
-        ), input_length=None, name='embedding_1'
-    )(inputs)
-
-    bidirectional = Bidirectional(
-        LSTM(
-            units=64, return_sequences=True, activation='tanh', recurrent_activation='sigmoid',
-            kernel_initializer=glorot_uniform(),
-            recurrent_initializer=Orthogonal(gain=1.0), bias_initializer='zeros',
-            unit_forget_bias=True), merge_mode='concat', name='bidirectional'
-    )(embedding)
-
-    global_max_pooling1d = GlobalMaxPooling1D(
-        name='global_max_pooling1d'
-    )(bidirectional)
-
-    dense = Dense(
-        units=64, activation='relu', kernel_initializer=glorot_uniform(),
-        bias_initializer='zeros', name='dense'
-    )(global_max_pooling1d)
-
-    dropout = Dropout(
-        rate=0.5, name='dropout'
-    )(dense)
-
-    outputs = Dense(
-        1, activation='sigmoid', kernel_initializer=glorot_uniform(), bias_initializer='zeros',
-        name='output_1'
-    )(dropout)
-
-    return Model(inputs=inputs, outputs=outputs, name='model')
-
+X_test = pad_sequences(X_test, maxlen=max_length)
 
 # Create the model and compile it
-model = bidirectional_model((max_length,))
+model = Sequential([
+    Embedding(max_features, 256, input_length=max_length, name="embedding"),
+    Bidirectional(LSTM(64, return_sequences=True)),
+    GlobalMaxPooling1D(),
+    Dense(64, activation='relu'),
+    Dropout(0.5),
+    Dense(1, activation='sigmoid')
+])
 
 # Compile the model
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+optimizer = Adam(learning_rate=learning_rate)
+model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 model.summary()
 
 # Train the model
-model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size)
+model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, shuffle=True, validation_data=(X_test, y_test))
 
 # Evaluate the model
-X_test = tokenizer.texts_to_sequences(X_test)
-X_test = pad_sequences(X_test, maxlen=max_length)
 model.evaluate(X_test, y_test)
 
 # Save the model
@@ -154,18 +93,18 @@ model.save('models\\model.h5')
 # Save the tokenizer
 import pickle
 
-with open('models\\tokenize.pickle', 'wb') as handle:
+with open('models\\tokenizer.pickle', 'wb') as handle:
     pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 # For visualization in Embedding Projector (https://projector.tensorflow.org/)
-weights = model.get_layer('embedding_1').get_weights()[0]
+weights = model.get_layer('embedding').get_weights()[0]
 reverse_word_index = dict([(value, key) for (key, value) in word_index.items()])
 
 out_v = io.open('vectors.tsv', 'w', encoding='utf-8')
 out_m = io.open('metadata.tsv', 'w', encoding='utf-8')
 
-for word_num in range(1, max_features - 1):
+for word_num in range(1, max_features):
     word = reverse_word_index[word_num]
     embeddings = weights[word_num]
     out_m.write(word + "\n")
