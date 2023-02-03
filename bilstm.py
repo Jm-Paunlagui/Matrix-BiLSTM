@@ -10,7 +10,9 @@
 """
 import io
 
+import numpy as np
 import pandas as pd
+import tensorflow as tf
 from keras.optimizers import Adam
 
 from keras.preprocessing.text import Tokenizer
@@ -18,8 +20,11 @@ from keras.utils import pad_sequences
 from keras.models import Sequential
 from keras.layers import Dense, Embedding, Bidirectional, LSTM, Dropout, GlobalMaxPooling1D
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from pipeline import TextPreprocessing as MyTextPreprocessing
 from pipeline import remove_stopwords
+
+tf.keras.backend.clear_session()
 
 # Read the imported data
 df = pd.read_csv('dataset\\dataset-all-combined-final.csv')
@@ -95,6 +100,18 @@ import pickle
 
 with open('models\\tokenizer.pickle', 'wb') as handle:
     pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+# Metrics
+predict_p = model.predict(X_test)
+predict_p = predict_p.flatten()
+pred = np.where(predict_p > 0.5, 1, 0)
+classi_report = classification_report(y_test, pred)
+confusionmatrix = confusion_matrix(y_test, pred)
+accuracy = accuracy_score(y_test, pred)
+
+print(f"Classification Report: \n {classi_report}")
+print(f"Confusion Matrix: \n {confusionmatrix}")
+print(f"Accuracy: {accuracy}")
 
 
 # For visualization in Embedding Projector (https://projector.tensorflow.org/)
