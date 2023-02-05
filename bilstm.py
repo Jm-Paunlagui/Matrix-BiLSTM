@@ -93,12 +93,12 @@ model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, shuffle=True, 
 model.evaluate(X_test, y_test)
 
 # Save the model
-model.save('models\\model.h5')
+model.save('models\\model-backup.h5')
 
 # Save the tokenizer
 import pickle
 
-with open('models\\tokenizer.pickle', 'wb') as handle:
+with open('models/tokenizer-backup.pickle', 'wb') as handle:
     pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 # Metrics
